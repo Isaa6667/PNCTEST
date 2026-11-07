@@ -1,7 +1,8 @@
 (() => {
 'use strict';
 
-const $ = (s, el = document) => el.querySelector(s); const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -289,4 +290,198 @@ function onDetect(c) {
   const le = S.lastEntry.get(plate);
   const fresh = !le || now - le > settings.cooldown * 1000;
   if (fresh) {
-    const entry = { id: uid(), ts: now, plate, conf: Math.round(c.
+    const entry = { id: uid(), ts: now, plate, conf: Math.round(c.conf), seen: 1, demo: S.demo };
+    LOG.push(entry);
+    saveLog();
+    showToast(entry, ev);
+  }
+  S.lastEntry.set(plate, now);
+  S.dirty = true;
+  updateUI();
+}
+
+function showToast(entry, ev) {
+  const box = $('#toasts');
+  const el = document.createElement('div');
+  el.className = `toast ${ev.sev}`;
+  el.innerHTML = `
+    <div>${plateHTML(entry.plate, 'sm')}</div>
+    <div>
+      <div class="t-title">${ev.sev === 'alert' ? 'PNC ALERT' : 'LOGGED'}: ${esc(ev.rec.colour)} ${esc(ev.rec.make)}</div>
+      ${flagsHTML(ev.flags.slice(0, 2))}
+      <div class="t-open">Tap to open record</div>
+    </div>
+    <button class="t-x">×</button>`;
+  el.onclick = () => { location.hash = '#/v/' + entry.plate; el.remove(); };
+  box.prepend(el);
+  setTimeout(() => el.remove(), 7000);
+}
+
+function drawOverlay() {
+  const W = S.frameW, H = S.frameH;
+  if (overlay.width !== W || overlay.height !== H) { overlay.width = W; overlay.height = H; }
+  octx.clearRect(0, 0, W, H);
+  const now = Date.now();
+  S.boxes = S.boxes.filter(b => now - b.t < 1500);
+  for (const b of S.boxes) {
+    octx.strokeStyle = '#2563eb'; octx.lineWidth = 3;
+    octx.strokeRect(b.bbox.x0, b.bbox.y0, b.bbox.x1 - b.bbox.x0, b.bbox.y1 - b.bbox.y0);
+  }
+  requestAnimationFrame(drawOverlay);
+}
+
+function setStatus(t) { $('#statusLine').textContent = t; }
+function updateUI() {
+  $('#ownSpeed').textContent = fmtSpeed(S.ownSpeed);
+  $('#stTotal').textContent = LOG.length;
+  $('#stUnique').textContent = new Set(LOG.map(e => e.plate)).size;
+  $('#stAlerts').textContent = LOG.filter(e => evaluate(e.plate).sev === 'alert').length;
+  
+  if (S.dirty) {
+    S.dirty = false;
+    const feed = $('#feed'), rows = LOG.slice(-10).reverse();
+    feed.innerHTML = rows.length ? rows.map(rowHTML).join('') : '<p class="empty">No captures yet.</p>';
+  }
+  $('#stRate').textContent = S.scanMs ? (S.scanMs / 1000).toFixed(1) + 's' : '--';
+}
+setInterval(updateUI, 500);
+
+function rowHTML(e) {
+  const ev = evaluate(e.plate), r = ev.rec;
+  return `<button class="row ${ev.sev}" data-plate="${e.plate}">
+    ${plateHTML(e.plate, 'sm')}
+    <div class="meta"><b>${esc(r.colour)} ${esc(r.make)} ${esc(r.model)}</b><span>${esc(ev.flags[0].t)}</span></div>
+    <div class="right"><b>${new Date(e.ts).toLocaleTimeString('en-GB')}</b></div>
+  </button>`;
+}
+
+async function start(demo) {
+  if (S.running) await stop();
+  S.demo = demo; S.running = true;
+  $('#viewer').classList.add('live');
+  if (demo) {
+    setStatus('Simulator Mode Active');
+    demoLoop();
+  } else {
+    try {
+      setStatus('Starting Camera...');
+      await startCamera();
+      await ensureWorker();
+      setStatus('Scanning...');
+      scanLoop();
+    } catch (e) {
+      await stop(); alert('Camera initialization error: ' + e.message); return;
+    }
+  }
+  updateUI();
+}
+
+async function stop() {
+  S.running = false;
+  stopCamera();
+  $('#viewer').classList.remove('live');
+  setStatus('Idle');
+  updateUI();
+}
+
+/* PNC Full View Renderer (Fixes Manual Lookup Page Blanking) */
+function vehiclePage(plate) {
+  const c = cleanPlate(plate);
+  const ev = evaluate(c), r = ev.rec;
+  const sights = LOG.filter(e => e.plate === c).reverse();
+  const hot = HOT.some(h => cleanPlate(h.plate) === c);
+
+  return `
+  <div class="pg-head">
+    <button class="btn" data-act="back">← Back</button>
+    <h2>PNC Vehicle Online Data: ${fmtPlate(c)}</h2>
+    <div class="spacer"></div>
+    <button class="btn" data-act="hot" data-plate="${c}">${hot ? 'Remove Watchlist' : 'Add Watchlist'}</button>
+  </div>
+  <div class="pg-body">
+    <div class="hero ${ev.sev}">
+      ${plateHTML(c, 'xl')}
+      <div>
+        <div class="verdict">${ev.sev === 'alert' ? 'ACTION INDICATED: CHECK VEHICLE' : 'VEHICLE RECORD CLEAR'}</div>
+        <div class="sub">${esc(r.colour)} ${esc(r.make)} ${esc(r.model)} (${r.yearOfManufacture || '2015'})</div>
+        ${flagsHTML(ev.flags)}
+      </div>
+    </div>
+    <div class="cols">
+      <section class="card">
+        <h3>Vehicle Online Data (VOD)</h3>
+        <table class="kv">
+          <tr><td>Make / Model</td><td>${esc(r.make)} ${esc(r.model)}</td></tr>
+          <tr><td>Colour</td><td>${esc(r.colour)}</td></tr>
+          <tr><td>Fuel Type</td><td>${esc(r.fuelType)}</td></tr>
+          <tr><td>Engine Capacity</td><td>${r.engineCapacity} cc</td></tr>
+          <tr><td>Tax Status</td><td>${esc(r.taxStatus)}</td></tr>
+          <tr><td>MOT Status</td><td>${esc(r.motStatus)}</td></tr>
+          <tr><td>Insurer</td><td>Burchill Insurance Services</td></tr>
+          <tr><td>Policy Number</td><td>D993412X</td></tr>
+        </table>
+      </section>
+      <section class="card">
+        <h3>Policyholder & Drivers</h3>
+        <table class="kv">
+          <tr><td>Policyholder</td><td>Lady Penelope Creighton, Slough, Berkshire</td></tr>
+          <tr><td>Permitted Drivers</td><td>INSURED AND CHAUFFEUR</td></tr>
+          <tr><td>Named Drivers</td><td>1. 'NOSEY' PARKER</td></tr>
+          <tr><td>Class of Use</td><td>SOCIAL DOMESTIC AND PLEASURE</td></tr>
+        </table>
+      </section>
+    </div>
+  </div>`;
+}
+
+function renderRoute() {
+  const h = location.hash || '#/', page = $('#page');
+  const m = h.match(/^#\/v\/([A-Z0-9]+)$/i);
+  if (m) {
+    page.innerHTML = vehiclePage(m[1]);
+    page.hidden = false;
+  } else {
+    page.hidden = true;
+  }
+}
+
+window.addEventListener('hashchange', renderRoute);
+
+document.addEventListener('click', e => {
+  const act = e.target.closest('[data-act]');
+  if (act) {
+    const a = act.dataset.act;
+    if (a === 'back' || a === 'nav-home') location.hash = '#/';
+    else if (a === 'hot') {
+      const p = cleanPlate(act.dataset.plate);
+      const idx = HOT.findIndex(h => cleanPlate(h.plate) === p);
+      if (idx >= 0) HOT.splice(idx, 1); else HOT.push({ plate: p, note: 'Manual entry', added: Date.now() });
+      saveHot(); renderRoute();
+    }
+    return;
+  }
+  const row = e.target.closest('.row[data-plate]');
+  if (row) location.hash = '#/v/' + row.dataset.plate;
+});
+
+document.addEventListener('submit', e => {
+  if (e.target.id === 'lookupForm') {
+    e.preventDefault();
+    const raw = $('#lookupInput').value;
+    const p = cleanPlate(raw);
+    if (!p) return;
+    location.hash = '#/v/' + p;
+  }
+});
+
+$('#btnStartIdle').onclick = () => start(false);
+$('#btnDemoIdle').onclick = () => start(true);
+$('#btnStop').onclick = () => stop();
+$('#btnBottomBack').onclick = () => location.hash = '#/';
+$('#clockBtn').onclick = () => alert('System Time: ' + new Date().toLocaleTimeString());
+$('#btnUrgent').onclick = () => alert('Urgent Assistance Signal Broadcasted.');
+
+renderRoute();
+drawOverlay();
+updateUI();
+})();
