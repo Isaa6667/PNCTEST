@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1b2e">
+<title>PlateWatch – fictional PNC ANPR console</title>
+<link rel="stylesheet" href="styles.css">
+<!-- OCR engine (loaded from CDN). Needs internet on first load. -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<div class="banner">Fictional training and demo system. Every vehicle record is generated from the plate text. It is not connected to the real PNC, DVLA or MIB.</div>
+
+<header class="top">
+  <a class="brand" href="#/">
+    <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><path d="M16 2 4 6v9c0 7.2 5 12.6 12 15 7-2.400 12-7.800 12-15V6z" fill="#f6c915"/><path d="M9 21v-8h6.500a2.500 2.500 0 0 1 0 5H12" fill="none" stroke="#0d1b2e" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 13v8" stroke="#0d1b2e" stroke-width="2.200" stroke-linecap="round"/></svg>
+    <span><b>PlateWatch</b><small>Fictional Police National Computer · ANPR console</small></span>
+  </a>
+  <div class="chips">
+    <span class="chip" id="chipCam"><i></i>Camera off</span>
+    <span class="chip" id="chipGps"><i></i>GPS off</span>
+    <span class="chip" id="chipScan"><i></i>Idle</span>
+    <a class="chip link" id="chipLog" href="#/log"><i></i>0 logged</a>
+  </div>
+  <nav class="nav">
+    <a href="#/" data-nav="/">Scan</a>
+    <a href="#/log" data-nav="/log">Log</a>
+    <a href="#/hotlist" data-nav="/hotlist">Hotlist</a>
+    <a href="#/settings" data-nav="/settings">Settings</a>
+  </nav>
+</header>
+
+<main class="scan">
+  <section class="viewer" id="viewer">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="overlay"></canvas>
+
+    <div class="hud hud-own">
+      <span class="lbl">Your speed (GPS)</span>
+      <span class="num"><b id="ownSpeed">--</b><em id="ownUnit">mph</em></span>
+    </div>
+
+    <div class="hud hud-lead" id="leadBox">
+      <span class="lbl">Vehicle ahead</span>
+      <div id="leadPlate" class="leadplate">No vehicle</div>
+      <div class="leadrow">
+        <span class="num"><b id="leadSpeed">--</b><em id="leadUnit">mph</em></span>
+        <span class="dist" id="leadDist">-- m</span>
+      </div>
+      <span class="note" id="leadNote">Estimated from plate size and your GPS speed</span>
+    </div>
+
+    <div class="idle" id="idle">
+      <h1>Point the camera at the road ahead</h1>
+      <p>Mount the phone on the dashboard facing forwards. Scanning runs continuously until you stop it. Passengers operate the screen; the driver should never touch it.</p>
+      <div class="idle-actions">
+        <button class="btn primary" id="btnStartIdle">Start live scanning</button>
+        <button class="btn" id="btnDemoIdle">Try demo mode</button>
+      </div>
+    </div>
+
+    <div class="controls" id="controls">
+      <button class="btn danger" id="btnStop">Stop</button>
+      <button class="btn" id="btnFlip">Switch camera</button>
+      <button class="btn" id="btnExpand">Expand</button>
+      <span class="status" id="statusLine"></span>
+    </div>
+  </section>
+
+  <aside class="side">
+    <section class="panel">
+      <h2>Check a plate</h2>
+      <form id="lookupForm" autocomplete="off">
+        <input id="lookupInput" class="plate-input" placeholder="AB12 CDE" maxlength="9" autocapitalize="characters" spellcheck="false" aria-label="Registration number">
+        <button class="btn primary" type="submit">Check</button>
+      </form>
+      <p class="hint" id="lookupMsg"></p>
+    </section>
+
+    <section class="panel stats">
+      <div><b id="stTotal">0</b><span>Sightings</span></div>
+      <div><b id="stUnique">0</b><span>Vehicles</span></div>
+      <div><b id="stAlerts">0</b><span>Alerts</span></div>
+      <div><b id="stRate">--</b><span>Scan time</span></div>
+    </section>
+
+    <section class="panel grow">
+      <div class="panel-head"><h2>Live feed</h2><a href="#/log" class="textlink">Open full log</a></div>
+      <div id="feed" class="feed"><p class="empty">Plates appear here as soon as they are read. Tap one for the full record.</p></div>
+    </section>
+  </aside>
+</main>
+
+<div id="page" class="page" hidden></div>
+<div id="toasts" aria-live="polite"></div>
+
+</body>
+</html>
