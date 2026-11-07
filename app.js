@@ -28,7 +28,7 @@ const DEFAULTS = {
   thumbs: true,
   retain: 800,
   facing: 'environment',
-  dvlaApiKey: '',
+  dvlaApiKey: 'DvlaSearchDemoAccount',
   dvlaProxyUrl: ''
 };
 const settings = Object.assign({}, DEFAULTS, store.get('pw.settings', {}));
