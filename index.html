@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#050a0e">
-<title>PNC-VOD // Police National Computer – Vehicle Online Data Console</title>
+<meta name="theme-color" content="#d1d7e0">
+<title>PNC Mobile Data Terminal // Classic Console</title>
 <link rel="stylesheet" href="styles.css">
 <!-- OCR engine (loaded from CDN) -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
@@ -12,32 +12,17 @@
 </head>
 <body>
 
-<div class="pnc-banner">
-  <span class="pnc-badge">RESTRICTED // LAW ENFORCEMENT DEMO</span>
-  <span>PNC-VOD INTERFACE · DVLA VES API DIRECT CONNECTION CONNECTED</span>
-</div>
-
-<header class="top">
-  <a class="brand" href="#/">
-    <div class="crest-icon">PNC</div>
-    <span>
-      <b>POLICE NATIONAL COMPUTER</b>
-      <small>VEHICLE ONLINE DATA (VOD) & ANPR CONSOLE</small>
-    </span>
-  </a>
-  <div class="chips">
-    <span class="chip" id="chipDvla"><i></i>DVLA: Offline</span>
-    <span class="chip" id="chipCam"><i></i>Cam: Off</span>
-    <span class="chip" id="chipGps"><i></i>GPS: Off</span>
-    <span class="chip" id="chipScan"><i></i>Scan: Idle</span>
-    <a class="chip link" id="chipLog" href="#/log"><i></i>0 Logged</a>
+<header class="pnc-top-nav">
+  <div class="pnc-tabs">
+    <button class="tab-btn active">On Route</button>
+    <button class="tab-btn">Menu</button>
+    <button class="tab-btn">Status</button>
+    <button class="tab-btn active-tab">PNC</button>
+    <button class="tab-btn">CAD</button>
+    <button class="tab-btn">Text</button>
+    <button class="tab-btn">Map</button>
+    <button class="tab-btn suspend">Suspend</button>
   </div>
-  <nav class="nav">
-    <a href="#/" data-nav="/">PNC ANPR</a>
-    <a href="#/log" data-nav="/log">Sightings Log</a>
-    <a href="#/hotlist" data-nav="/hotlist">PNC Hotlist</a>
-    <a href="#/settings" data-nav="/settings">API & Systems Config</a>
-  </nav>
 </header>
 
 <main class="scan">
@@ -46,49 +31,49 @@
     <canvas id="overlay"></canvas>
 
     <div class="hud hud-own">
-      <span class="lbl">PATROL SPEED (GPS)</span>
+      <span class="lbl">GPS SPEED</span>
       <span class="num"><b id="ownSpeed">--</b><em id="ownUnit">MPH</em></span>
     </div>
 
     <div class="hud hud-lead" id="leadBox">
-      <span class="lbl">TARGET VEHICLE AHEAD</span>
-      <div id="leadPlate" class="leadplate">NO TARGET</div>
+      <span class="lbl">TARGET VEHICLE</span>
+      <div id="leadPlate" class="leadplate">NO VEHICLE</div>
       <div class="leadrow">
         <span class="num"><b id="leadSpeed">--</b><em id="leadUnit">MPH</em></span>
         <span class="dist" id="leadDist">-- m</span>
       </div>
-      <span class="note" id="leadNote">Tracking vehicle range and speed delta...</span>
+      <span class="note" id="leadNote">Awaiting optical lock...</span>
     </div>
 
     <div class="idle" id="idle">
-      <h1>PNC-VOD LIVE ANPR INTERFACE</h1>
-      <p>Position camera toward target traffic lane. Real-time OCR reads registrations and fetches live tax, MOT, and colour status directly from DVLA systems.</p>
+      <h1>PNC ANPR CAMERA TERMINAL</h1>
+      <p>Point device toward traffic to run live OCR extraction and query DVLA records instantly.</p>
       <div class="idle-actions">
-        <button class="btn primary" id="btnStartIdle">INITIALISE SCANNER</button>
+        <button class="btn primary" id="btnStartIdle">START LIVE SCANNER</button>
         <button class="btn" id="btnDemoIdle">SIMULATOR MODE</button>
       </div>
     </div>
 
     <div class="controls" id="controls">
-      <button class="btn danger" id="btnStop">HALT</button>
-      <button class="btn" id="btnFlip">FLIP CAM</button>
-      <button class="btn" id="btnExpand">FULLSCREEN</button>
-      <span class="status" id="statusLine">SYSTEM READY</span>
+      <button class="btn danger" id="btnStop">STOP</button>
+      <button class="btn" id="btnFlip">SWITCH CAM</button>
+      <button class="btn" id="btnExpand">EXPAND</button>
+      <span class="status" id="statusLine">READY</span>
     </div>
   </section>
 
   <aside class="side">
-    <section class="panel terminal-box">
-      <h2>PNC MANUAL QUERY</h2>
+    <section class="panel">
+      <h2>MANUAL VRM QUERY</h2>
       <form id="lookupForm" autocomplete="off">
         <input id="lookupInput" class="plate-input" placeholder="AB12 CDE" maxlength="9" autocapitalize="characters" spellcheck="false" aria-label="Registration number">
-        <button class="btn primary" type="submit">QUERY PNC</button>
+        <button class="btn primary" type="submit">QUERY</button>
       </form>
       <p class="hint" id="lookupMsg"></p>
     </section>
 
     <section class="panel stats">
-      <div><b id="stTotal">0</b><span>READS</span></div>
+      <div><b id="stTotal">0</b><span>SIGHTINGS</span></div>
       <div><b id="stUnique">0</b><span>UNIQUE</span></div>
       <div><b id="stAlerts">0</b><span>ALERTS</span></div>
       <div><b id="stRate">--</b><span>LATENCY</span></div>
@@ -96,15 +81,26 @@
 
     <section class="panel grow">
       <div class="panel-head">
-        <h2>LIVE ANPR BROADCAST FEED</h2>
-        <a href="#/log" class="textlink">LOG FILE</a>
+        <h2>LIVE CAPTURE FEED</h2>
+        <a href="#/log" class="textlink">FULL LOG</a>
       </div>
       <div id="feed" class="feed">
-        <p class="empty">SYSTEM READY. Detected registrations will populate in real time.</p>
+        <p class="empty">Detected registrations appear here instantly. Tap any record for the full PNC card.</p>
       </div>
     </section>
   </aside>
 </main>
+
+<footer class="pnc-bottom-bar">
+  <button class="bottom-tab green">IN COV</button>
+  <button class="bottom-tab green-dark">On Patrol</button>
+  <button class="bottom-tab dark">Back</button>
+  <button class="bottom-tab dark time-btn" id="clockBtn">22:45</button>
+  <button class="bottom-tab dark"></button>
+  <button class="bottom-tab dark"></button>
+  <button class="bottom-tab dark"></button>
+  <button class="bottom-tab red">Urgent Assistance</button>
+</footer>
 
 <div id="page" class="page" hidden></div>
 <div id="toasts" aria-live="polite"></div>
